@@ -37,6 +37,10 @@ public class JoinRaceConditionTests
 
         _mockServer.Setup(s => s.ToString()).Returns("MockServer");
         _mockServer.Setup(s => s.MaxChannels).Returns(10);
+        // A realistic message-length budget so 353 NAMREPLY fits on a single line.
+        // Without this the mock returns 0, forcing ProcessNamesReply to split the
+        // names list across multiple 353 lines and breaking FirstOrDefault(...353).
+        _mockServer.Setup(s => s.MaxMessageLength).Returns(512);
         _mockServer.Setup(s => s.JoinOnCreate).Returns(true);
         _mockServer.Setup(s => s.GetChannels()).Returns(_serverChannels);
         _mockServer.Setup(s => s.GetChannelByName(It.IsAny<string>()))
@@ -352,6 +356,10 @@ public class JoinRaceConditionTests
         mockU.Setup(u => u.GetLevel()).Returns(EnumUserAccessLevel.None);
         mockU.Setup(u => u.IsAdministrator()).Returns(false);
         mockU.Setup(u => u.GetProtocol()).Returns(mockProtocol.Object);
+        // ProcessNamesReply reads user.Server.MaxMessageLength when building the 353
+        // reply, so every mock user must expose the server. Concurrent tests override
+        // this too, but wiring it here keeps the sequential tests from NRE'ing.
+        mockU.Setup(u => u.Server).Returns(_mockServer.Object);
         mockU.Setup(u => u.Send(It.IsAny<string>()));
         return mockU;
     }
