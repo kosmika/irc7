@@ -7,7 +7,7 @@ namespace Irc.Commands;
 
 public class Equestion : Command, ICommand
 {
-    public Equestion() : base(3)
+    public Equestion() : base(4)
     {
     }
 
@@ -16,12 +16,13 @@ public class Equestion : Command, ICommand
         return EnumCommandDataType.None;
     }
 
-    // EQUESTION %#OnStage Nickname :Why am I here?
+    // EQUESTION %#OnStage Nickname %#NicknameChannel :Why am I here?
     public new void Execute(IChatFrame chatFrame)
     {
         var targetName = chatFrame.ChatMessage.Parameters.First();
         var nickname = chatFrame.ChatMessage.Parameters[1];
-        var message = chatFrame.ChatMessage.Parameters[2];
+        var fromChannelName = chatFrame.ChatMessage.Parameters[2];
+        var message = chatFrame.ChatMessage.Parameters[3];
 
         var targets = targetName.Split(',', StringSplitOptions.RemoveEmptyEntries);
         foreach (var target in targets)
@@ -59,12 +60,19 @@ public class Equestion : Command, ICommand
                 return;
             }
 
-            SubmitQuestion(chatFrame.User, channel, nickname, message);
+            if (channelMember!.GetLevel() < EnumChannelAccessLevel.ChatHost)
+            {
+                chatFrame.User.Send(
+                    Raws.IRCX_ERR_CANNOTSENDTOCHAN_404(chatFrame.Server, chatFrame.User, channel));
+                return;
+            }
+
+            SubmitQuestion(chatFrame.User, channel, nickname, fromChannelName, message);
         }
     }
 
-    public static void SubmitQuestion(IUser user, IChannel channel, string nickname, string message)
+    public static void SubmitQuestion(IUser user, IChannel channel, string nickname, string fromChannelName, string message)
     {
-        channel.Send(Raws.RPL_EQUESTION(user, channel, nickname, message));
+        channel.Send(Raws.RPL_EQUESTION(user, channel, nickname, fromChannelName, message));
     }
 }
