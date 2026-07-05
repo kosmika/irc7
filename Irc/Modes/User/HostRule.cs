@@ -15,12 +15,19 @@ public class HostRule : ModeRuleChannel, IModeRule
         // TODO: Write this better
         if (target == source && flag)
         {
-            if (string.IsNullOrWhiteSpace(parameter)) return EnumIrcError.OK;
-
             var user = (IUser)source;
-            var channel = user.GetChannels().LastOrDefault().Key;
-            var channelModes = channel.Modes;
-            var member = user.GetChannels().LastOrDefault().Value;
+            
+            // If user is not on a channel then return error
+            var userChannels = user.GetChannels();
+            if (userChannels.Count == 0) return EnumIrcError.ERR_NOTONCHANNEL;
+            
+            var channelMemberPair = userChannels.LastOrDefault();
+            
+            // If there is no key then return error
+            if (string.IsNullOrWhiteSpace(parameter)) return EnumIrcError.ERR_BADVALUE;
+
+            var channel = channelMemberPair.Key;
+            var member = channelMemberPair.Value;
 
             var ownerkeyProp = channel.Props.OwnerKey;
             var hostkeyProp = channel.Props.HostKey;
