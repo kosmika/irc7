@@ -59,7 +59,7 @@ public class Names : Command, ICommand
         {
             if (batch.Length > 0 && batch.Length + 1 + name.Length > maxNamesLength)
             {
-                user.Send(Raws.IRCX_RPL_NAMEREPLY_353(user.Server, user, channel, channelType, batch.ToString()));
+                user.Send($"{prefix}{batch}");
                 batch.Clear();
             }
 
@@ -68,7 +68,7 @@ public class Names : Command, ICommand
         }
 
         if (batch.Length > 0)
-            user.Send(Raws.IRCX_RPL_NAMEREPLY_353(user.Server, user, channel, channelType, batch.ToString()));
+            user.Send($"{prefix}{batch}");
 
         user.Send(Raws.IRCX_RPL_ENDOFNAMES_366(user.Server, user, channel));
     }
