@@ -38,9 +38,16 @@ public class Nick : Command, ICommand
 
         if (isDs) mask = Resources.DsNickname;
 
-        var isInLength = nickname.Length <= Resources.MaxFieldLen;
-        var isMatch = RegularExpressions.Match(mask, nickname, true);
         var isPrefixValid = ValidatePrefix(nickname, requiredPrefix);
+
+        // The nickname mask does not allow the prefix character, so strip a leading
+        // required prefix before matching the regex against the actual nickname body.
+        var nicknameBody = nickname;
+        if (!string.IsNullOrEmpty(requiredPrefix) && nickname.Length > 0 && nickname[0] == requiredPrefix[0])
+            nicknameBody = nickname.Substring(1);
+
+        var isInLength = nickname.Length <= Resources.MaxFieldLen;
+        var isMatch = RegularExpressions.Match(mask, nicknameBody, true);
         var isValid = isInLength && isMatch && isPrefixValid;
         return isValid;
     }
