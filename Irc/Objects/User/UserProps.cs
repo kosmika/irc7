@@ -64,11 +64,11 @@ public class PropPuid : PropRule, IPropRule
     public override EnumIrcError EvaluateGet(IChatObject source, IChatObject target)
     {
         if (source is not IUser sourceUser || target is not IUser targetUser)
-            return EnumIrcError.ERR_NOPERMS;
+            return EnumIrcError.ERR_NOSUCHNICK;
 
         var sharedChannel = sourceUser.GetChannels().Keys.Any(channel => targetUser.IsOn(channel));
         if (!sharedChannel)
-            return EnumIrcError.ERR_NOPERMS;
+            return EnumIrcError.ERR_NOTONCHANNEL;
 
         if (targetUser.GetProfile() == null)
             return EnumIrcError.NO_VALUE;

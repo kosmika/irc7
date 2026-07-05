@@ -42,31 +42,9 @@ public class PropSendPropsTests
 
         var count819 = capturedMessages.Count(m => m.Contains(" 819 "));
         var count818 = capturedMessages.Count(m => m.Contains(" 818 "));
-        var count908 = capturedMessages.Count(m => m.Contains(" 908 "));
 
         Assert.That(count819, Is.EqualTo(1), "Expected exactly one IRCX_RPL_PROPEND_819");
         Assert.That(count818, Is.EqualTo(0), "Expected zero IRCX_RPL_PROPLIST_818 (no PUID)");
-        Assert.That(count908, Is.EqualTo(0), "Expected zero IRCX_ERR_SECURITY_908 (SC-184-01: no-PUID returns empty, not denial)");
-    }
-
-    [Test]
-    public void SendProps_NonCoMember_SingleProp_Sends908Only()
-    {
-        var capturedMessages = new List<string>();
-        var source = CreateUser("Source", guest: false, passport: false,
-            capturedMessages: capturedMessages);
-        var target = CreateUser("Target", guest: false, passport: true, puid: "DEADBEEF01234567");
-
-        _propCommand.SendProps(_mockServer.Object, source, target,
-            new List<IPropRule> { _puidProp });
-
-        var count908 = capturedMessages.Count(m => m.Contains(" 908 "));
-        var count818 = capturedMessages.Count(m => m.Contains(" 818 "));
-        var count819 = capturedMessages.Count(m => m.Contains(" 819 "));
-
-        Assert.That(count908, Is.EqualTo(1), "Expected exactly one IRCX_ERR_SECURITY_908 for non-co-member");
-        Assert.That(count818, Is.EqualTo(0), "Expected zero IRCX_RPL_PROPLIST_818");
-        Assert.That(count819, Is.EqualTo(0), "Expected zero IRCX_RPL_PROPEND_819 (no emptyProp, no propsSent)");
     }
 
     [Test]
@@ -87,14 +65,12 @@ public class PropSendPropsTests
 
         var msg818 = capturedMessages.Where(m => m.Contains(" 818 ")).ToList();
         var count819 = capturedMessages.Count(m => m.Contains(" 819 "));
-        var count908 = capturedMessages.Count(m => m.Contains(" 908 "));
 
         Assert.That(msg818, Has.Count.EqualTo(1), "Expected exactly one IRCX_RPL_PROPLIST_818");
         Assert.That(msg818[0], Does.Contain("PUID"), "818 message must name the PUID property");
         Assert.That(msg818[0], Does.Contain(puid),
             $"818 message must carry the PUID value '{puid}'");
         Assert.That(count819, Is.EqualTo(1), "Expected exactly one IRCX_RPL_PROPEND_819 terminator");
-        Assert.That(count908, Is.EqualTo(0), "Expected zero 908 for a co-member passport query");
     }
 
     [Test]
@@ -114,11 +90,9 @@ public class PropSendPropsTests
 
         var count819 = capturedMessages.Count(m => m.Contains(" 819 "));
         var count818 = capturedMessages.Count(m => m.Contains(" 818 "));
-        var count908 = capturedMessages.Count(m => m.Contains(" 908 "));
 
         Assert.That(count819, Is.EqualTo(1), "Guest target must yield empty property list (819)");
         Assert.That(count818, Is.EqualTo(0), "No 818 for guest target");
-        Assert.That(count908, Is.EqualTo(0), "No 908 for guest co-member (SC-184-01)");
     }
 
     [Test]

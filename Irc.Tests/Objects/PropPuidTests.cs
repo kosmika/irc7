@@ -22,48 +22,48 @@ public class PropPuidTests
     }
 
     [Test]
-    public void EvaluateGet_NonUserSource_ReturnsErrNoperms()
+    public void EvaluateGet_NonUserSource_ReturnsErrNoSuchNick()
     {
         var mockSource = new Mock<IChatObject>();
         var target = CreateUser(guest: false, passport: false);
 
         var result = _prop.EvaluateGet(mockSource.Object, target);
 
-        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOPERMS));
+        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOSUCHNICK));
     }
 
     [Test]
-    public void EvaluateGet_NonUserTarget_ReturnsErrNoperms()
+    public void EvaluateGet_NonUserTarget_ReturnsErrNoSuchNick()
     {
         var source = CreateUser(guest: false, passport: false);
         var mockTarget = new Mock<IChatObject>();
 
         var result = _prop.EvaluateGet(source, mockTarget.Object);
 
-        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOPERMS));
+        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOSUCHNICK));
     }
 
     [Test]
-    public void EvaluateGet_GateFirst_PassportTarget_NoSharedChannel_ReturnsErrNoperms()
+    public void EvaluateGet_PassportTarget_NoSharedChannel_ReturnsErrNotOnChannel()
     {
         var source = CreateUser(guest: false, passport: false);
         var target = CreateUser(guest: false, passport: true, puid: "DEADBEEFDEADBEEF");
 
         var result = _prop.EvaluateGet(source, target);
 
-        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOPERMS),
+        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOTONCHANNEL),
             "Access gate must fire before PUID classification even for passport targets");
     }
 
     [Test]
-    public void EvaluateGet_GateFirst_GuestTarget_NoSharedChannel_ReturnsErrNoperms()
+    public void EvaluateGet_GuestTarget_NoSharedChannel_ReturnsErrNotOnChannel()
     {
         var source = CreateUser(guest: false, passport: false);
         var target = CreateUser(guest: true, passport: false);
 
         var result = _prop.EvaluateGet(source, target);
 
-        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOPERMS),
+        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOTONCHANNEL),
             "Access gate must fire before guest classification");
     }
 
@@ -136,7 +136,7 @@ public class PropPuidTests
     }
 
     [Test]
-    public void EvaluateGet_DifferentChannels_NoOverlap_ReturnsErrNoperms()
+    public void EvaluateGet_DifferentChannels_NoOverlap_ReturnsErrNotOnChannel()
     {
         var source = CreateUser(guest: false, passport: true, puid: "SOURCEPUID");
         var target = CreateUser(guest: false, passport: true, puid: "TARGETPUID");
@@ -147,7 +147,7 @@ public class PropPuidTests
 
         var result = _prop.EvaluateGet(source, target);
 
-        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOPERMS));
+        Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOTONCHANNEL));
     }
 
     [Test]
