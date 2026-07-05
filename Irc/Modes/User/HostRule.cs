@@ -19,7 +19,7 @@ public class HostRule : ModeRuleChannel, IModeRule
             
             // If user is not on a channel then return error
             var userChannels = user.GetChannels();
-            if (userChannels.Count == 0) return EnumIrcError.ERR_NOTONCHANNEL;
+            if (userChannels.Count == 0) return EnumIrcError.ERR_UNOTINCHANNEL;
             
             var channelMemberPair = userChannels.LastOrDefault();
             
