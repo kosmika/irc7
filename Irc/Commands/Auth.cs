@@ -219,7 +219,7 @@ public class Auth : Command, ICommand
         userAddress.Host = credentials.GetDomain();
         userAddress.Server = chatFrame.Server.Name;
         var nickname = credentials.GetNickname();
-        if (!string.IsNullOrWhiteSpace(nickname)) chatFrame.User.Name = credentials.GetNickname();
+        if (!string.IsNullOrWhiteSpace(nickname)) chatFrame.User.Name = $"{credentials.Prefix}{credentials.GetNickname()}";
         if (credentials.Guest && string.IsNullOrWhiteSpace(chatFrame.User.GetAddress().RealName))
             userAddress.RealName = string.Empty;
 
@@ -232,7 +232,5 @@ public class Auth : Command, ICommand
 
         // Send reply
         chatFrame.User.Send(Raws.RPL_AUTH_SUCCESS(packageName, $"{user}@{domain}", 0));
-
-        return;
     }
 }
