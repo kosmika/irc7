@@ -219,19 +219,18 @@ public class Auth : Command, ICommand
         userAddress.Host = credentials.GetDomain();
         userAddress.Server = chatFrame.Server.Name;
         var nickname = credentials.GetNickname();
-        if (!string.IsNullOrWhiteSpace(nickname)) chatFrame.User.Name = credentials.GetNickname();
+        if (!string.IsNullOrWhiteSpace(nickname)) chatFrame.User.Name = $"{credentials.Prefix}{credentials.GetNickname()}";
         if (credentials.Guest && string.IsNullOrWhiteSpace(chatFrame.User.GetAddress().RealName))
             userAddress.RealName = string.Empty;
 
-        chatFrame.User.SetGuest(credentials.Guest);
         chatFrame.User.SetLevel(credentials.GetLevel());
 
+        if (!credentials.Guest && saslHandler.RequiresPassport)
+            chatFrame.User.AssignPassportProfile();
         // TODO: find another way to work in Utf8 nicknames
         if (chatFrame.User.GetLevel() >= EnumUserAccessLevel.Guide) chatFrame.User.Utf8 = true;
 
         // Send reply
         chatFrame.User.Send(Raws.RPL_AUTH_SUCCESS(packageName, $"{user}@{domain}", 0));
-
-        return;
     }
 }

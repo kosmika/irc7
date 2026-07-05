@@ -193,8 +193,10 @@ public static class Register
 
         if (!authenticating && !registered && hasNickname)
         {
+            var requiredPrefix = Nick.ResolveRequiredPrefix(user);
             var isNicknameValid =
-                Nick.ValidateNickname(nickname, guest, oper, authenticating, isDs: chatFrame.Server.IsDirectoryServer);
+                Nick.ValidateNickname(nickname, guest, oper, authenticating, isDs: chatFrame.Server.IsDirectoryServer,
+                    requiredPrefix: server.IsDirectoryServer ? string.Empty : requiredPrefix);
 
             if (!isNicknameValid)
             {
