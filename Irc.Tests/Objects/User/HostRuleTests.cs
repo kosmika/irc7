@@ -21,7 +21,7 @@ public class HostRuleTests
         Assert.DoesNotThrow(() =>
         {
             var result = rule.Evaluate(user, user, true, string.Empty);
-            Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOTONCHANNEL));
+            Assert.That(result, Is.EqualTo(EnumIrcError.ERR_UNOTINCHANNEL));
         });
     }
 
@@ -38,7 +38,7 @@ public class HostRuleTests
         Assert.DoesNotThrow(() =>
         {
             var result = rule.Evaluate(user, target, true, string.Empty);
-            Assert.That(result, Is.EqualTo(EnumIrcError.ERR_NOTONCHANNEL));
+            Assert.That(result, Is.EqualTo(EnumIrcError.ERR_UNOTINCHANNEL));
         });
     }
 
