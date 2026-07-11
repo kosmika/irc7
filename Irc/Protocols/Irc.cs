@@ -56,6 +56,9 @@ public class Irc : Protocol, IProtocol
         AddCommand(new Reply());
         AddCommand(new Request());
         AddCommand(new Whisper());
+        AddCommand(new Eprivmsg());
+        AddCommand(new Esubmit());
+        AddCommand(new Equestion());
     }
 
     public new ICommand? GetCommand(string name)
