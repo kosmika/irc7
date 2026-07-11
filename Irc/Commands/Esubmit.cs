@@ -65,6 +65,6 @@ public class Esubmit : Command, ICommand
 
     public static void SubmitQuestion(IUser user, IChannel channel, string message)
     {
-        channel.Send(Raws.RPL_EQUESTION(user, channel, user.ToString(), message));
+        channel.Send(Raws.RPL_EQUESTION(user, channel, user.ToString(), channel.ToString(), message), EnumChannelAccessLevel.ChatHost);
     }
 }

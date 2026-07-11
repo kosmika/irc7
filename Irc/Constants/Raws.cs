@@ -1132,9 +1132,9 @@ public static class Raws
         return $":{user.GetAddress()} EPRIVMSG {channel} :{message}";
     }
 
-    public static string RPL_EQUESTION(IUser user, IChannel channel, string nickname, string message)
+    public static string RPL_EQUESTION(IUser user, IChannel channel, string nickname, string fromChannelName, string message)
     {
-        return $":{user.GetAddress()} EQUESTION {channel} {nickname} {channel} :{message}";
+        return $":{user.GetAddress()} EQUESTION {channel} {nickname} {fromChannelName} :{message}";
     }
 
     // IRCX CLONE message (draft-pfenning-irc-extensions-04 section 6.2)
