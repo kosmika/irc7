@@ -35,7 +35,7 @@ public class EsubmitEprivmsgEquestionTests
     // Shared helpers
     // -----------------------------------------------------------------------
 
-    private Mock<IUser> CreateMockUser(string nick, string host = "anon")
+    private Mock<IUser> CreateMockUser(string nick, string host = "anon", EnumUserAccessLevel level = EnumUserAccessLevel.None)
     {
         var mockProtocol = new Mock<IProtocol>();
         mockProtocol.Setup(p => p.GetProtocolType()).Returns(EnumProtocolType.IRC8);
@@ -54,7 +54,7 @@ public class EsubmitEprivmsgEquestionTests
         user.Setup(u => u.GetAddress()).Returns(address);
         user.Setup(u => u.GetProtocol()).Returns(mockProtocol.Object);
         user.Setup(u => u.Send(It.IsAny<string>()));
-        user.Setup(u => u.GetLevel()).Returns(EnumUserAccessLevel.None);
+        user.Setup(u => u.GetLevel()).Returns(level);
         user.Setup(u => u.IsAdministrator()).Returns(false);
         user.Setup(u => u.GetChannels()).Returns(new Dictionary<IChannel, IChannelMember>());
         user.Setup(u => u.Modes).Returns(new UserModes());
@@ -193,7 +193,7 @@ public class EsubmitEprivmsgEquestionTests
         var channel = new Channel("%#OnStage");
         channel.Modes.OnStage.ModeValue = true;
 
-        var host = CreateMockUser("HostUser");
+        var host = CreateMockUser("HostUser", level: EnumUserAccessLevel.Guide);
         var member = CreateMockUser("RegularMember");
 
         channel.Join(host.Object, EnumChannelAccessResult.SUCCESS_HOST);
@@ -280,7 +280,7 @@ public class EsubmitEprivmsgEquestionTests
         var channel = new Channel("%#Onstage3");
         channel.Modes.OnStage.ModeValue = true;
 
-        var moderator = CreateMockUser("DishDiva", "cg");
+        var moderator = CreateMockUser("DishDiva", "cg", level: EnumUserAccessLevel.Guide);
         var audience = CreateMockUser("AudienceMember");
 
         channel.Join(moderator.Object, EnumChannelAccessResult.SUCCESS_HOST);
