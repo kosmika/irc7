@@ -229,7 +229,7 @@ public class Server : ChatObject, IServer
     public int NetInvisibleCount { get; } = 0;
     public int NetServerCount { get; } = 0;
     public int NetUserCount { get; } = 0;
-    public string SecurityPackages => "GateKeeper,NTLM";
+    public string SecurityPackages => "GateKeeper,NTLM,ANON";
     public int SysopCount { get; } = 0;
     public int UnknownConnectionCount => _socketServer.CurrentConnections - NetUserCount;
     public string RemoteIp { set; get; } = string.Empty;
