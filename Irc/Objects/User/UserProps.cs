@@ -23,6 +23,7 @@ public class PropProfile : PropRule
         if (int.TryParse(propValue, out var result))
         {
             var profile = user.GetProfile();
+            if (profile == null) return EnumIrcError.OK;
             if (profile.HasProfile)
             {
                 user.Send(Raws.IRCX_ERR_ALREADYREGISTERED_462(user.Server, user));
@@ -49,6 +50,42 @@ public class PropNick : PropRule, IPropRule
     {
         var user = (IUser)target;
         return user.GetAddress().Nickname;
+    }
+}
+
+public class PropPuid : PropRule, IPropRule
+{
+    // limited to 200 bytes including 1 or 2 characters for channel prefix
+    public PropPuid() : base(Resources.UserPropPuid, EnumChannelAccessLevel.ChatMember,
+        EnumChannelAccessLevel.None, Resources.GenericProps, string.Empty, true)
+    {
+    }
+
+    public override EnumIrcError EvaluateGet(IChatObject source, IChatObject target)
+    {
+        if (source is not IUser sourceUser || target is not IUser targetUser)
+            return EnumIrcError.ERR_NOSUCHNICK;
+
+        var sharedChannel = sourceUser.GetChannels().Keys.Any(channel => targetUser.IsOn(channel));
+        if (!sharedChannel)
+            return EnumIrcError.ERR_NOTONCHANNEL;
+
+        if (targetUser.GetProfile() == null)
+            return EnumIrcError.NO_VALUE;
+
+        return EnumIrcError.OK;
+    }
+
+    public override string GetValue(IChatObject target)
+    {
+        var user = (IUser)target;
+        var sspiHandler = user.GetSspiHandler();
+        if (sspiHandler == null) return string.Empty;
+        
+        var credentials = sspiHandler.GetCredentials();
+        if (credentials == null) return string.Empty;
+
+        return credentials.Username;
     }
 }
 
@@ -88,6 +125,7 @@ public class UserProps : PropCollection, IUserProps
     public PropSubInfo SubscriberInfo { get; } = new();
     public PropProfile Profile { get; } = new();
     public PropRole Role { get; } = new();
+    public PropPuid Puid { get; } = new();
     
     public UserProps()
     {
@@ -98,5 +136,6 @@ public class UserProps : PropCollection, IUserProps
         AddProp(SubscriberInfo);
         AddProp(Profile);
         AddProp(Role);
+        AddProp(Puid);
     }
 }

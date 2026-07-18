@@ -10,7 +10,19 @@ namespace Irc.Objects.Channel;
 
 public class Channel : ChatObject, IChannel
 {
-    protected readonly IList<IChannelMember> _members = new List<IChannelMember>();
+    /// <summary>
+    /// The authoritative member list. All access (reads and mutations) is guarded by
+    /// <see cref="_membersLock"/>. Reads return a defensive copy so callers can iterate
+    /// safely without holding the lock, and so concurrent joins observe a consistent
+    /// pre-mutation snapshot.
+    ///
+    /// A plain <see cref="List{T}"/> + lock is used (rather than ImmutableList + CAS)
+    /// because adds are O(1) amortized with no per-add allocations or CAS retries. The
+    /// server's single-threaded Process() loop means the lock is essentially uncontended
+    /// in production, while still providing correctness under the concurrent-join race.
+    /// </summary>
+    private readonly List<IChannelMember> _members = new();
+    private readonly object _membersLock = new();
     public HashSet<string> InviteList = new();
     public string Locale { get; set; } = string.Empty;
     public long Creation { get; } = Resources.GetEpochNowInSeconds();
@@ -31,34 +43,29 @@ public class Channel : ChatObject, IChannel
         Props.Creation.Value = Creation.ToString();
     }
 
-    /*
-       a AuthOnly
-       e Clone
-       p Private
-       h Hidden
-       s Secret
-       m Moderated
-       w NoWhisper
-       d Cloneable
-       x Auditorium
-     */
-    private static char[] supportedChannelModes =
-    [
-        Resources.ChannelModeNoExtern,
-        Resources.ChannelModeTopicOp,
-        Resources.ChannelModeAuthOnly,
-        Resources.ChannelModeClone,
-        Resources.ChannelModeCloneable,
-        Resources.ChannelModePrivate,
-        Resources.ChannelModeHidden,
-        Resources.ChannelModeSecret,
-        Resources.ChannelModeModerated,
-        Resources.ChannelModeNoWhisper,
-        Resources.ChannelModeNoGuestWhisper,
-        Resources.ChannelModeAuditorium
-    ]; 
+    private static readonly Lazy<char[]> _cachedSupportedChannelModes = new(() =>
+    {
+        // Exclude member-specific mode letters (owner/host/voice)
+        var excluded = new HashSet<char>
+        {
+            Resources.MemberModeOwner,
+            Resources.MemberModeVoice,
+            Resources.MemberModeHost
+        };
+
+        var channelModes = new ChannelModes().GetSupportedModes();
+        return channelModes.Where(c => !excluded.Contains(c)).ToArray();
+    });
+
+    public static char[] SupportedChannelModes()
+    {
+        // Return a copy to avoid callers mutating the cached array
+        return _cachedSupportedChannelModes.Value.ToArray();
+    }
+    
     public static IChannel FromInMemoryChannel(InMemoryChannel inMemoryChannel)
     {
+        var supportedChannelModes = SupportedChannelModes();
         // Set name
         var channel = new Channel(inMemoryChannel.ChannelName);
         
@@ -81,8 +88,12 @@ public class Channel : ChatObject, IChannel
         // Set locale
         // 1:+ST!EN-US!AV
         // 1:+ST 1:ST 1:-ST -- No idea
+        var isRegistered = inMemoryChannel.Modes.Contains('r');
+        var registeredToken = isRegistered ? "+ST" : "-ST";
+        var locale = string.IsNullOrWhiteSpace(inMemoryChannel.Locale) ? "EN-US" : inMemoryChannel.Locale;
+        var category = string.IsNullOrWhiteSpace(inMemoryChannel.Category) ? "GN" : inMemoryChannel.Category;
         channel.Locale = inMemoryChannel.Locale;
-        channel.Props.Subject.Value = $"1:ST:{inMemoryChannel.Locale}:{inMemoryChannel.Category}";
+        channel.Props.Subject.Value = $"{inMemoryChannel.Language}:{registeredToken}:{locale}:{category}";
         
         // Set language
         channel.Props.Language.Value = inMemoryChannel.Language.ToString();
@@ -106,7 +117,7 @@ public class Channel : ChatObject, IChannel
 
     public IChannelMember? GetMember(IUser user)
     {
-        foreach (var channelMember in _members)
+        foreach (var channelMember in SnapshotMembers())
             if (channelMember.GetUser() == user)
                 return channelMember;
 
@@ -115,7 +126,7 @@ public class Channel : ChatObject, IChannel
 
     public IChannelMember? GetMemberByNickname(string nickname)
     {
-        return _members.FirstOrDefault(member =>
+        return SnapshotMembers().FirstOrDefault(member =>
             String.Compare(member.GetUser().GetAddress().Nickname, nickname, StringComparison.OrdinalIgnoreCase) == 0);
     }
 
@@ -127,33 +138,69 @@ public class Channel : ChatObject, IChannel
 
     public IChannel Join(IUser user, EnumChannelAccessResult accessResult = EnumChannelAccessResult.NONE)
     {
-        var joinMember = AddMember(user, accessResult);
-        foreach (var channelMember in GetMembers())
+        // Snapshot existing members AND add this user inside a single lock, so the two
+        // steps are atomic with respect to other joins/parts. The snapshot is taken
+        // BEFORE the new member is added, guaranteeing that:
+        //   • Only users already in the channel receive the JOIN broadcast.
+        //   • Two users joining concurrently never appear in each other's broadcast
+        //     snapshot — they discover each other exclusively via the 353 NAMREPLY.
+        // The ToList() copy lets us broadcast outside the lock, keeping the critical
+        // section to O(n) copy + O(1) add and avoiding re-entrant Send() under the lock.
+        IList<IChannelMember> existingMembers;
+        IChannelMember joinMember;
+        lock (_membersLock)
+        {
+            existingMembers = _members.ToList();
+            joinMember = AddMember(user, accessResult);
+        }
+
+        // Notify every user who was already in the channel about the new joiner.
+        foreach (var channelMember in existingMembers)
         {
             var channelUser = channelMember.GetUser();
             var channelUserProtocol = channelUser.GetProtocol().GetProtocolType();
             if (channelUserProtocol <= EnumProtocolType.IRC3)
             {
-                channelMember.GetUser().Send(Raws.RPL_JOIN(user, this));
+                channelUser.Send(Raws.RPL_JOIN(user, this));
             }
             else
             {
                 channelUser.Send(Raws.RPL_JOIN_MSN(channelMember, this, joinMember));
             }
 
-            if (channelUserProtocol <= EnumProtocolType.IRC6)
+            if (channelUserProtocol <= EnumProtocolType.IRC6 && joinMember.HasModes())
             {
-                if (joinMember.HasModes())
-                {
-                    var modeChar = joinMember.Owner.ModeValue ? 
-                        Resources.MemberModeOwner :
-                        joinMember.Operator.ModeValue ? 
-                            Resources.MemberModeHost : Resources.MemberModeVoice;
+                var modeChar = joinMember.Owner.ModeValue ?
+                    Resources.MemberModeOwner :
+                    joinMember.Operator.ModeValue ?
+                        Resources.MemberModeHost : Resources.MemberModeVoice;
 
-                    ModeRule.DispatchModeChange((ChatObject)channelUser, modeChar,
-                        (ChatObject)user, this, true, user.ToString());
-                }   
+                ModeRule.DispatchModeChange((ChatObject)channelUser, modeChar,
+                    (ChatObject)user, this, true, user.ToString());
             }
+        }
+
+        // Send the new user their own JOIN confirmation.
+        var joinUserProtocol = user.GetProtocol().GetProtocolType();
+        if (joinUserProtocol <= EnumProtocolType.IRC3)
+        {
+            user.Send(Raws.RPL_JOIN(user, this));
+        }
+        else
+        {
+            user.Send(Raws.RPL_JOIN_MSN(joinMember, this, joinMember));
+        }
+
+        // Dispatch the new user's own member mode (owner/host/voice) to themselves.
+        if (joinUserProtocol <= EnumProtocolType.IRC6 && joinMember.HasModes())
+        {
+            var modeChar = joinMember.Owner.ModeValue ?
+                Resources.MemberModeOwner :
+                joinMember.Operator.ModeValue ?
+                    Resources.MemberModeHost : Resources.MemberModeVoice;
+
+            ModeRule.DispatchModeChange((ChatObject)user, modeChar,
+                (ChatObject)user, this, true, user.ToString());
         }
 
         return this;
@@ -205,7 +252,7 @@ public class Channel : ChatObject, IChannel
 
     public IChannel SendTopic()
     {
-        _members.ToList().ForEach(member => SendTopic(member.GetUser()));
+        SnapshotMembers().ForEach(member => SendTopic(member.GetUser()));
         return this;
     }
 
@@ -245,16 +292,27 @@ public class Channel : ChatObject, IChannel
         Send(Raws.RPL_NOTICE(user, this, message), (ChatObject)user);
     }
 
+    /// <summary>
+    /// Returns a point-in-time copy of the member list taken under the lock.
+    /// Callers can iterate the result freely without holding the lock and without
+    /// risk of "collection modified" exceptions from concurrent joins/parts.
+    /// </summary>
+    private List<IChannelMember> SnapshotMembers()
+    {
+        lock (_membersLock)
+        {
+            return _members.ToList();
+        }
+    }
+
     public IList<IChannelMember> GetMembers()
     {
-        return _members;
+        return SnapshotMembers();
     }
 
     public bool HasUser(IUser user)
     {
-        foreach (var member in _members)
-            // TODO: Re-enable below
-            //if (CompareUserAddress(user, member.GetUser())) return true;
+        foreach (var member in SnapshotMembers())
             if (CompareUserNickname(member.GetUser(), user) || CompareUserAddress(user, member.GetUser()))
                 return true;
 
@@ -353,20 +411,20 @@ public class Channel : ChatObject, IChannel
 
     public override void Send(string message)
     {
-        foreach (var channelMember in _members)
+        foreach (var channelMember in SnapshotMembers())
             channelMember.GetUser().Send(message);
     }
 
     public override void Send(string message, ChatObject u)
     {
-        foreach (var channelMember in _members)
+        foreach (var channelMember in SnapshotMembers())
             if (channelMember.GetUser() != u)
                 channelMember.GetUser().Send(message);
     }
 
     public override void Send(string message, EnumChannelAccessLevel accessLevel)
     {
-        foreach (var channelMember in _members)
+        foreach (var channelMember in SnapshotMembers())
             if (channelMember.GetLevel() >= accessLevel)
                 channelMember.GetUser().Send(message);
     }
@@ -466,7 +524,13 @@ public class Channel : ChatObject, IChannel
         else if (accessResult == EnumChannelAccessResult.SUCCESS_HOST) member.Operator.ModeValue = true;
         else if (accessResult == EnumChannelAccessResult.SUCCESS_VOICE) member.Voice.ModeValue = true;
 
-        _members.Add(member);
+        // O(1) amortized add. lock is re-entrant, so this is safe whether called
+        // standalone or nested inside Join()'s snapshot-and-add critical section.
+        lock (_membersLock)
+        {
+            _members.Add(member);
+        }
+
         user.AddChannel(this, member);
         EmptySince = null; // Channel is no longer empty
         return member;
@@ -474,11 +538,17 @@ public class Channel : ChatObject, IChannel
 
     private void RemoveMember(IUser user)
     {
-        var member = _members.Where(m => m.GetUser() == user).FirstOrDefault();
-        if (member != null) _members.Remove(member);
+        bool isEmpty;
+        lock (_membersLock)
+        {
+            var target = _members.FirstOrDefault(m => m.GetUser() == user);
+            if (target != null) _members.Remove(target);
+            isEmpty = _members.Count == 0;
+        }
+
         user.RemoveChannel(this);
 
-        if (_members.Count == 0 && !Store)
+        if (isEmpty && !Store)
         {
             EmptySince = DateTime.UtcNow;
         }

@@ -22,25 +22,30 @@ public static class Register
             chatFrame.User.Send(Raws.IRCX_RPL_WELCOME_004(chatFrame.Server, chatFrame.User,
                 chatFrame.Server.ServerVersion));
             
+            var Raw005ChannelModes = chatFrame.Server.ChannelModes.Replace("b", "").Replace("k", "").Replace("l", "");
+            
             chatFrame.User.Send(Raws.IRCX_RPL_ISUPPORT_005(
                 chatFrame.Server, 
                 chatFrame.User,
                 Resources.ConfigChannelTypes,
-                "qov", // temporary
-                ".@+", // temporary
-                "b,k,l,SWadefghimnprstuwxz", // temporary
+                chatFrame.Server.MemberModes,
+                chatFrame.Server.MemberListedModes,
+                $"b,k,l,{Raw005ChannelModes}", // temporary
                 chatFrame.Server.MaxChannels
             ));
             
+            var users = chatFrame.Server.GetUsers();
+            var operatorCount = users.Count(u => u.GetLevel() >= EnumUserAccessLevel.Guide);
+
             chatFrame.User.Send(Raws.IRCX_RPL_LUSERCLIENT_251(chatFrame.Server, chatFrame.User, 0, 0, 0));
-            chatFrame.User.Send(Raws.IRCX_RPL_LUSEROP_252(chatFrame.Server, chatFrame.User, 0));
+            chatFrame.User.Send(Raws.IRCX_RPL_LUSEROP_252(chatFrame.Server, chatFrame.User, operatorCount));
             chatFrame.User.Send(Raws.IRCX_RPL_LUSERUNKNOWN_253(chatFrame.Server, chatFrame.User, 0));
             chatFrame.User.Send(Raws.IRCX_RPL_LUSERCHANNELS_254(chatFrame.Server, chatFrame.User));
             chatFrame.User.Send(Raws.IRCX_RPL_LUSERME_255(chatFrame.Server, chatFrame.User, 0, 1));
             chatFrame.User.Send(Raws.IRCX_RPL_LUSERS_265(chatFrame.Server, chatFrame.User,
-                chatFrame.Server.GetUsers().Count, 10000));
+                users.Count, 10000));
             chatFrame.User.Send(Raws.IRCX_RPL_GUSERS_266(chatFrame.Server, chatFrame.User,
-                chatFrame.Server.GetUsers().Count, 10000));
+                users.Count, 10000));
 
             var motd = chatFrame.Server.GetMotd();
             if (motd == null)
@@ -188,8 +193,10 @@ public static class Register
 
         if (!authenticating && !registered && hasNickname)
         {
+            var requiredPrefix = Nick.ResolveRequiredPrefix(user);
             var isNicknameValid =
-                Nick.ValidateNickname(nickname, guest, oper, authenticating, isDs: chatFrame.Server.IsDirectoryServer);
+                Nick.ValidateNickname(nickname, guest, oper, authenticating, isDs: chatFrame.Server.IsDirectoryServer,
+                    requiredPrefix: server.IsDirectoryServer ? string.Empty : requiredPrefix);
 
             if (!isNicknameValid)
             {

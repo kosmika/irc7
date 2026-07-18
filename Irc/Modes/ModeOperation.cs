@@ -89,6 +89,11 @@ public class ModeOperation
                 Source.Send(Raws.IRCX_ERR_KEYSET_467(Source.Server, Source, (IChannel)Target));
                 break;
             }
+            case EnumIrcError.ERR_UNOTINCHANNEL:
+            {
+                Source.Send(Raws.IRCX_ERR_U_NOTINCHANNEL_928(Source.Server, Source));
+                break;
+            }
         }
     }
 }

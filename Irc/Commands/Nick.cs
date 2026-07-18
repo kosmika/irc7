@@ -29,27 +29,58 @@ public class Nick : Command, ICommand
     }
 
     public static bool ValidateNickname(string nickname, bool guest = false, bool oper = false, bool preAuth = false,
-        bool preReg = false, bool isDs = false)
+        bool preReg = false, bool isDs = false, string? requiredPrefix = null)
     {
         var mask = Resources.PostAuthNicknameMask;
 
         if (preAuth) mask = Resources.PreAuthNicknameMask;
         else if (oper) mask = Resources.PostAuthOperNicknameMask;
-        else if (guest) mask = Resources.PostAuthGuestNicknameMask;
 
         if (isDs) mask = Resources.DsNickname;
 
+        var isPrefixValid = ValidatePrefix(nickname, requiredPrefix);
+
+        // The nickname mask does not allow the prefix character, so strip a leading
+        // required prefix before matching the regex against the actual nickname body.
+        var nicknameBody = nickname;
+        if (!string.IsNullOrEmpty(requiredPrefix) && nickname.Length > 0 && nickname[0] == requiredPrefix[0])
+            nicknameBody = nickname.Substring(1);
+
         var isInLength = nickname.Length <= Resources.MaxFieldLen;
-        var isMatch = RegularExpressions.Match(mask, nickname, true);
-        var isValid = isInLength && isMatch;
+        var isMatch = RegularExpressions.Match(mask, nicknameBody, true);
+        var isValid = isInLength && isMatch && isPrefixValid;
         return isValid;
+    }
+
+    /// <summary>
+    /// Ensures the nickname begins with the required prefix character obtained from the
+    /// authenticated user's credentials (DefaultPermissions.json prefix). When no prefix is
+    /// required (empty/null), the nickname passes this check.
+    /// </summary>
+    private static bool ValidatePrefix(string nickname, string? requiredPrefix)
+    {
+        if (string.IsNullOrEmpty(requiredPrefix)) return true;
+        return nickname.Length > 0 && nickname[0] == requiredPrefix[0];
+    }
+
+    /// <summary>
+    /// Resolves the required nickname prefix for a user. Uses the prefix from the user's
+    /// SASL credentials when authenticated; otherwise falls back to the global ANON prefix
+    /// from DefaultPermissions.json (or a built-in default when ANON is not configured).
+    /// </summary>
+    public static string ResolveRequiredPrefix(IUser user)
+    {
+        var credentials = user.GetSspiHandler()?.GetCredentials();
+        return credentials?.Prefix ?? Security.DefaultPermissions.AnonPrefix;
     }
 
     public static bool HandlePreauthNicknameChange(IChatFrame chatFrame)
     {
         var nickname = chatFrame.ChatMessage.Parameters.First();
         // UTF8 / Guest / Normal / Admin/Sysop/Guide OK
-        var isValid = ValidateNickname(nickname, preAuth: true, isDs: chatFrame.Server.IsDirectoryServer); 
+        var requiredPrefix = ResolveRequiredPrefix(chatFrame.User);
+        var isValid = ValidateNickname(nickname, preAuth: true, isDs: chatFrame.Server.IsDirectoryServer,
+            requiredPrefix: requiredPrefix); 
         if (!isValid)
         {
             chatFrame.User.Send(Raws.IRCX_ERR_ERRONEOUSNICK_432(chatFrame.Server, chatFrame.User, nickname));
@@ -66,7 +97,8 @@ public class Nick : Command, ICommand
         var guest = chatFrame.User.IsGuest();
         var oper = chatFrame.User.GetLevel() >= EnumUserAccessLevel.Guide;
 
-        if (!ValidateNickname(nickname, guest, oper, false, true, isDs: chatFrame.Server.IsDirectoryServer))
+        if (!ValidateNickname(nickname, guest, oper, false, true, isDs: chatFrame.Server.IsDirectoryServer,
+                requiredPrefix: ResolveRequiredPrefix(chatFrame.User)))
         {
             chatFrame.User.Send(Raws.IRCX_ERR_ERRONEOUSNICK_432(chatFrame.Server, chatFrame.User, nickname));
             return false;
@@ -97,7 +129,8 @@ public class Nick : Command, ICommand
                 return false;
             }
 
-        if (!ValidateNickname(nickname, guest, oper, isDs: chatFrame.Server.IsDirectoryServer))
+        if (!ValidateNickname(nickname, guest, oper, isDs: chatFrame.Server.IsDirectoryServer,
+                requiredPrefix: ResolveRequiredPrefix(chatFrame.User)))
         {
             chatFrame.User.Send(Raws.IRCX_ERR_ERRONEOUSNICK_432(chatFrame.Server, chatFrame.User, nickname));
             return false;

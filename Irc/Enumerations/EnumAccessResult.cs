@@ -3,6 +3,7 @@
 public enum EnumIrcError
 {
     OK = -1,
+    NO_VALUE = -2,
     NONE = 0,
     ERR_ALREADYINCHANNEL = 1,
     ERR_NOSUCHNICK = 401,
@@ -24,5 +25,6 @@ public enum EnumIrcError
     ERR_SECUREONLYCHAN = 557,
     ERR_AUTHONLYCHAN = 904,
     ERR_BADVALUE = 906,
-    ERR_NOPERMS = 908
+    ERR_NOPERMS = 908,
+    ERR_UNOTINCHANNEL = 928
 }

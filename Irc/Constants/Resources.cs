@@ -275,9 +275,9 @@ public static class Resources
     public static string ChannelPropNameRegex = @"^%?[#&][^ \07,]{1,200}$";
     public static string ChannelPropOIDRegex = @"/0(?:[a-fA-F0-9]{8})?/";
     public static string ChannelPropPICSRegex = @"[\x20-\x7F]{1,255}";
-    public static string ChannelPropTopicRegex = @"[\x20-\x7F]{1,160}";
-    public static string ChannelPropOnjoinRegex = @"[\x20-\x7F]{1,255}";
-    public static string ChannelPropOnpartRegex = @"[\x20-\x7F]{1,255}";
+    public static string ChannelPropTopicRegex = @"[\x20-\x7F]{0,160}";
+    public static string ChannelPropOnjoinRegex = @"[\x20-\x7F]{0,255}";
+    public static string ChannelPropOnpartRegex = @"[\x20-\x7F]{0,255}";
     public static string ChannelPropLagRegex = @"[0-2]{1}";
     public static string ChannelPropAccountRegex = @"[\x20-\x7F]{1,31}";
 
@@ -372,14 +372,12 @@ public static class Resources
     public static string PreAuthNicknameMask = @"(^[>'][\x41-\xFF\-0-9]+$)|(^[\x41-\xFF][\x41-\xFF\-0-9]+$)";
     public static string PostAuthNicknameMask = @"^(?!(Sysop)|(Admin)|(Guide))[\x41-\xFF][\x41-\xFF\-0-9]+$";
     public static string PostAuthOperNicknameMask = @"^'?[\x41-\xFF][\x41-\xFF\-0-9]*$";
-    public static string PostAuthGuestNicknameMask = @"^>[\x41-\xFF][\x41-\xFF\-0-9]*$";
 
     public static string StandardIRC = @"[(\x00-\x2C)(\x2E-\x2F)(\x3A-\x40)]{1}|\\N|\\R|\\0|\\T";
     public static string GenericProps = @"[\x20-\x7F]{0,31}";
     public static string JoinPartProp = @"[\x00]{1}";
     public static string IrcChannelRegex = @"#[\x21-\x2B,\x2D-\xFF]{1,200}";
     public static string IrcxChannelRegex = @"^%#[\x21-\x2B\x2D-\xFF]{1,200}$";
-    public static string GuestNicknameMask = @"^>(?!(Sysop)|(Admin)|(Guide))[\x41-\xFF\-0-9]+$";
     public static string NicknameMask = @"^(?!(Sysop)|(Admin)|(Guide))[\x41-\xFF][\x41-\xFF\-0-9]*$";
     public static string DsNickname = @"[\x41-\xFF\-0-9]+$";
     public static string StandardUtf8Nickname = @"^'?[\x41-\xFF][\x41-\xFF\-0-9]*$";

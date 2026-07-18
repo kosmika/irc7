@@ -35,6 +35,7 @@ internal class Program
 			socketServer.OnListen += (_, __) => DisplayStartupInfo(options, ip);
 
 			var defaultPermissions = await LoadDefaultPermissions();
+			DefaultPermissions.Initialize(defaultPermissions);
 			var floodProtectionManager = new FloodProtectionManager();
 			var dataStoreServerConfig = new DataStore(ResolveRuntimePath("DefaultServer.json"));
 
